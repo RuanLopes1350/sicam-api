@@ -1,0 +1,20 @@
+{
+  "identities": [
+    {
+      "name": "sicam-runtime",
+      "credentials": [
+        {
+          "accessKey": "sicam_s3_admin",
+          "secretKey": "sicam_s3_dev_secret_key"
+        }
+      ],
+      "actions": [
+        "Admin",
+        "Read",
+        "List",
+        "Tagging",
+        "Write"
+      ]
+    }
+  ]
+}

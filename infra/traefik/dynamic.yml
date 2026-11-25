@@ -1,0 +1,45 @@
+# ADR-08 & Contrato OpenAPI 3.1 (Seção 4.1) — Traefik v3 Edge Router + SSE Transport
+http:
+  middlewares:
+    security-headers:
+      headers:
+        frameDeny: true
+        contentTypeNosniff: true
+        browserXssFilter: true
+        stsSeconds: 31536000
+        stsIncludeSubdomains: true
+    block-openapi-prod:
+      replacePathRegex:
+        regex: "^/docs/.*"
+        replacement: "/api/v1/health/live"
+
+  serversTransports:
+    sse-transport:
+      forwardingTimeouts:
+        responseHeaderTimeout: "0s"
+        idleConnTimeout: "0s"
+
+  routers:
+    api-router:
+      rule: "PathPrefix(`/api`)"
+      entryPoints: ["web"]
+      middlewares: ["security-headers"]
+      service: sicam-api-svc
+    web-router:
+      rule: "PathPrefix(`/`)"
+      entryPoints: ["web"]
+      middlewares: ["security-headers"]
+      service: sicam-web-svc
+
+  services:
+    sicam-api-svc:
+      loadBalancer:
+        serversTransport: sse-transport
+        responseForwarding:
+          flushInterval: "100ms"
+        servers:
+          - url: "http://host.docker.internal:3333"
+    sicam-web-svc:
+      loadBalancer:
+        servers:
+          - url: "http://host.docker.internal:5173"
