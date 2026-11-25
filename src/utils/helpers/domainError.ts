@@ -80,6 +80,11 @@ export const ERROR_CATALOG = {
 		slug: 'params-out-of-bounds',
 		title: 'Parâmetros do algoritmo fora dos limites técnicos',
 	},
+	ERR_GRID_PIXEL_LIMIT_EXCEEDED: {
+		status: 422,
+		slug: 'grid-pixel-limit-exceeded',
+		title: 'Limite operacional de pixels da grade canônica excedido',
+	},
 	ERR_RATE_LIMIT_EXCEEDED: {
 		status: 429,
 		slug: 'rate-limit-exceeded',
