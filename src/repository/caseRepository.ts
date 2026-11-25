@@ -455,6 +455,42 @@ class CaseRepository {
 			throw parseDatabaseError(error, 'CaseRepository.updateMetadataById');
 		}
 	}
+
+	async findSpatialEnvelopeById(caseId: string, db: DbExecutor = getDb()) {
+		try {
+			const [row] = await db
+				.select({
+					id: analysisCases.id,
+					utmSrid: analysisCases.utmSrid,
+					aoiGeoJson: sql<AoiPolygonGeoJson>`(ST_AsGeoJSON(${analysisCases.aoiGeom}, 7)::jsonb - 'crs')`,
+					minLon: sql<number>`ST_XMin(${analysisCases.aoiGeom})::float8`,
+					minLat: sql<number>`ST_YMin(${analysisCases.aoiGeom})::float8`,
+					maxLon: sql<number>`ST_XMax(${analysisCases.aoiGeom})::float8`,
+					maxLat: sql<number>`ST_YMax(${analysisCases.aoiGeom})::float8`,
+				})
+				.from(analysisCases)
+				.where(eq(analysisCases.id, caseId))
+				.limit(1);
+
+			if (!row) {
+				return null;
+			}
+
+			return {
+				id: row.id,
+				utmSrid: row.utmSrid,
+				aoiGeoJson: row.aoiGeoJson,
+				bbox: [row.minLon, row.minLat, row.maxLon, row.maxLat] as [
+					number,
+					number,
+					number,
+					number,
+				],
+			};
+		} catch (error) {
+			throw parseDatabaseError(error, 'CaseRepository.findSpatialEnvelopeById');
+		}
+	}
 }
 
 export default new CaseRepository();

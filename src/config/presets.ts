@@ -56,4 +56,5 @@ export const STAC_WHITELISTED_HOSTS = new Set<string>([
 	'sentinel-cogs.s3.us-west-2.amazonaws.com',
 	'data.inpe.br',
 	'bdc.dpi.inpe.br',
+	'brazildatacube.dpi.inpe.br',
 ]);
