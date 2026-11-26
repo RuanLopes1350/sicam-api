@@ -1,6 +1,8 @@
+import type { PaperFormat } from '../config/db/schema/enums.js';
 import { logger } from '../config/loggerConfig.js';
 import {
 	createRedisSubscriber,
+	getCartographyExportQueue,
 	getGeoAnalysisQueue,
 	getRedis,
 } from '../config/redisConfig.js';
@@ -23,6 +25,15 @@ export interface PublishedSseEnvelope {
 export interface GeoAnalysisJobPayload {
 	runId: string;
 	caseId: string;
+	correlationId: string;
+}
+
+export interface CartographyExportJobPayload {
+	runId: string;
+	caseId: string;
+	paperFormat: PaperFormat;
+	observations: string | null;
+	requestedByUserId: string;
 	correlationId: string;
 }
 
@@ -59,6 +70,14 @@ export class RunEventsRepository {
 		const queue = getGeoAnalysisQueue();
 		const job = await queue.add('analyze-multitemporal', jobData, {
 			jobId: jobData.runId,
+		});
+		return String(job.id ?? jobData.runId);
+	}
+
+	async enqueueCartographyExportJob(jobData: CartographyExportJobPayload): Promise<string> {
+		const queue = getCartographyExportQueue();
+		const job = await queue.add('build-technical-package', jobData, {
+			jobId: `export-${jobData.runId}-${Date.now()}`,
 		});
 		return String(job.id ?? jobData.runId);
 	}

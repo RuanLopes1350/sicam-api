@@ -6,3 +6,6 @@ export * from './rasterFrameComposer.js';
 export * from './plateTemplateHtml.js';
 export * from './pdfRenderer.js';
 export * from './cartographyPipeline.js';
+export * from './vectorExporters.js';
+export * from './manifestAndZipBuilder.js';
+export * from './technicalPackagePipeline.js';

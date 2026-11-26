@@ -1,4 +1,4 @@
-import type { PaperFormat } from '../../../config/db/schema/enums.js';
+import type { PaperFormat, RasterType } from '../../../config/db/schema/enums.js';
 import cartographyRepository, {
 	type CartographyRunBundle,
 } from '../../../repository/cartographyRepository.js';
@@ -37,8 +37,11 @@ export async function renderRunCartographicPlatePdf(params: {
 	observations?: string | null;
 	datasetFingerprintSha256: string;
 	emittedAt?: Date;
+	preloadedBundle?: CartographyRunBundle;
+	preloadedRasterBuffers?: Partial<Record<RasterType, Buffer>>;
 }): Promise<RenderRunCartographicPlateResult> {
-	const bundle = await cartographyRepository.findCartographyRunBundle(params.runId);
+	const bundle =
+		params.preloadedBundle ?? (await cartographyRepository.findCartographyRunBundle(params.runId));
 	if (!bundle) {
 		throw new DomainError('ERR_RESOURCE_NOT_FOUND', 'Execução de análise não encontrada.');
 	}
@@ -57,12 +60,19 @@ export async function renderRunCartographicPlatePdf(params: {
 	const lockedFrame = computeLockedCartographicFrame(bundle.aoiBoundsUtm, params.paperFormat);
 
 	const maskMeta = bundle.rastersByType.delta_ndvi_mask;
+	const preloaded = params.preloadedRasterBuffers;
 	const [t0RgbObj, t1RgbObj, deltaMaskObj] = await Promise.all([
-		storageRepository.getPrivateObjectBytes(t0RgbMeta.storageKey, t0RgbMeta.storageBucket),
-		storageRepository.getPrivateObjectBytes(t1RgbMeta.storageKey, t1RgbMeta.storageBucket),
-		maskMeta
-			? storageRepository.getPrivateObjectBytes(maskMeta.storageKey, maskMeta.storageBucket)
-			: Promise.resolve(null),
+		preloaded?.t0_rgb
+			? Promise.resolve({ buffer: preloaded.t0_rgb })
+			: storageRepository.getPrivateObjectBytes(t0RgbMeta.storageKey, t0RgbMeta.storageBucket),
+		preloaded?.t1_rgb
+			? Promise.resolve({ buffer: preloaded.t1_rgb })
+			: storageRepository.getPrivateObjectBytes(t1RgbMeta.storageKey, t1RgbMeta.storageBucket),
+		preloaded?.delta_ndvi_mask
+			? Promise.resolve({ buffer: preloaded.delta_ndvi_mask })
+			: maskMeta
+				? storageRepository.getPrivateObjectBytes(maskMeta.storageKey, maskMeta.storageBucket)
+				: Promise.resolve(null),
 	]);
 
 	const targetW = lockedFrame.layout.mapInnerWidthPx;

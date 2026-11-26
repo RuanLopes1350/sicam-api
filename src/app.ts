@@ -14,6 +14,7 @@ import { securityPlugin } from './middlewares/security.js';
 import { auditRoutes } from './routes/auditRoutes.js';
 import { authRoutes } from './routes/authRoutes.js';
 import { caseRoutes } from './routes/caseRoutes.js';
+import { exportRoutes } from './routes/exportRoutes.js';
 import { runRoutes } from './routes/runRoutes.js';
 import { sceneRoutes } from './routes/sceneRoutes.js';
 import { systemRoutes } from './routes/systemRoutes.js';
@@ -183,6 +184,7 @@ export async function buildApp(options: BuildAppOptions = {}): Promise<FastifyIn
 			await v1.register(caseRoutes);
 			await v1.register(sceneRoutes);
 			await v1.register(runRoutes);
+			await v1.register(exportRoutes);
 			await v1.register(auditRoutes);
 		},
 		{ prefix: '/api/v1' },

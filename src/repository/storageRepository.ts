@@ -62,6 +62,24 @@ export class StorageRepository {
 		return `cases/${caseId}/runs/${runId}/rasters/${assetType}.png`;
 	}
 
+	buildExportPdfStorageKey(
+		caseId: string,
+		runId: string,
+		protocolCode: string,
+		version: number,
+	): string {
+		return `cases/${caseId}/runs/${runId}/exports/CARTA_IMAGEM_${protocolCode}_v${version}.pdf`;
+	}
+
+	buildExportZipStorageKey(
+		caseId: string,
+		runId: string,
+		protocolCode: string,
+		version: number,
+	): string {
+		return `cases/${caseId}/runs/${runId}/exports/PACOTE_${protocolCode}_v${version}.zip`;
+	}
+
 	async putPrivateObject(input: PutPrivateObjectInput): Promise<PutPrivateObjectResult> {
 		const bucket = env.S3_BUCKET;
 		const buffer = Buffer.isBuffer(input.body) ? input.body : Buffer.from(input.body);
