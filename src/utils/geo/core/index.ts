@@ -2,3 +2,8 @@ export * from './canonicalGrid.js';
 export * from './radiometry.js';
 export * from './cogBandReader.js';
 export * from './ndviClassifier.js';
+export * from './morphology.js';
+export * from './connectedComponents.js';
+export * from './vectorizer.js';
+export * from './rasterRenderer.js';
+export * from './geoCorePipeline.js';
