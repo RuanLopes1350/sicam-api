@@ -43,7 +43,9 @@
     "jose": "^5.9.6",
     "pg": "^8.13.3",
     "pino": "^9.6.0",
+    "playwright": "^1.65.1",
     "proj4": "^2.23.0",
+    "qrcode": "^1.5.4",
     "sharp": "^0.35.5",
     "zod": "^3.24.2"
   },
@@ -51,6 +53,7 @@
     "@types/node": "^22.13.4",
     "@types/pg": "^8.11.11",
     "@types/proj4": "^2.19.0",
+    "@types/qrcode": "^1.5.6",
     "@vitest/coverage-v8": "^3.2.7",
     "drizzle-kit": "^0.30.4",
     "pino-pretty": "^13.0.0",

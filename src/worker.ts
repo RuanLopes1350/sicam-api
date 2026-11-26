@@ -2,6 +2,7 @@ import { closeDb } from './config/dbConfig.js';
 import { logger } from './config/loggerConfig.js';
 import { closeRedis } from './config/redisConfig.js';
 import { closeS3, ensurePrivateBucket } from './config/s3Config.js';
+import { closeCartographyBrowser } from './utils/geo/cartography/pdfRenderer.js';
 import { startGeoAnalysisWorker } from './workers/geoAnalysisWorker.js';
 
 async function startWorkers(): Promise<void> {
@@ -13,7 +14,7 @@ async function startWorkers(): Promise<void> {
 		logger.info({ signal }, 'Iniciando desligamento gracioso do sicam-worker...');
 		try {
 			await geoWorker.close();
-			await Promise.all([closeDb(), closeRedis()]);
+			await Promise.all([closeCartographyBrowser(), closeDb(), closeRedis()]);
 			closeS3();
 			logger.info('Worker encerrado com sucesso.');
 			process.exit(0);
