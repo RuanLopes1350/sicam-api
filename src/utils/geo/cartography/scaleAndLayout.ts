@@ -2,6 +2,9 @@ import type { PaperFormat } from '../../../config/db/schema/enums.js';
 
 export const PX_PER_MM_300_DPI = 300 / 25.4;
 
+// Sentinel-2 (10 m/pixel): escala mais aberta que 1:10.000 evita ampliação excessiva (borrão) em AOIs < 5 ha
+export const MIN_SENTINEL2_SCALE_DENOMINATOR = 10_000;
+
 export const NORMALIZED_CARTOGRAPHIC_SCALES = [
 	2500,
 	5000,
@@ -118,6 +121,7 @@ export interface LockedCartographicFrame {
 export function computeLockedCartographicFrame(
 	aoiBoundsUtm: [number, number, number, number],
 	paperFormat: PaperFormat,
+	minScaleDenominator: number = MIN_SENTINEL2_SCALE_DENOMINATOR,
 ): LockedCartographicFrame {
 	const [eMin, nMin, eMax, nMax] = aoiBoundsUtm;
 	const layout = PAPER_LAYOUTS[paperFormat];
@@ -132,12 +136,13 @@ export function computeLockedCartographicFrame(
 	const hPapelM = layout.mapInnerHeightMm / 1000;
 
 	const rawDenominator = Math.max(wReqM / lPapelM, hReqM / hPapelM);
+	const effectiveRaw = Math.max(rawDenominator, minScaleDenominator);
 
 	let scaleDenominator: number | undefined = NORMALIZED_CARTOGRAPHIC_SCALES.find(
-		(s) => s >= rawDenominator,
+		(s) => s >= effectiveRaw,
 	);
 	if (scaleDenominator === undefined) {
-		scaleDenominator = Math.ceil(rawDenominator / 50_000) * 50_000;
+		scaleDenominator = Math.ceil(effectiveRaw / 50_000) * 50_000;
 	}
 
 	const centerUtmE = (eMin + eMax) / 2;

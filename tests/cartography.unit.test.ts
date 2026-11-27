@@ -16,6 +16,7 @@ import {
 	formatScaleDistanceLabel,
 	formatScaleRatio,
 	formatUtmMetersLabel,
+	MIN_SENTINEL2_SCALE_DENOMINATOR,
 	NORMALIZED_CARTOGRAPHIC_SCALES,
 	PAPER_LAYOUTS,
 	renderGraphicScaleBarSvg,
@@ -24,6 +25,7 @@ import {
 	renderTrueNorthArrowSvg,
 	selectUtmGridStepM,
 } from '../src/utils/geo/cartography/index.js';
+import { createCanonicalGrid } from '../src/utils/geo/core/index.js';
 import { projectCoords } from '../src/utils/geo/projRegistry.js';
 import type { AoiPolygonGeoJson } from '../src/utils/validation/caseValidation.js';
 
@@ -74,6 +76,17 @@ describe('Task API-09 — Motor Cartográfico A4/A3 (300 DPI) — Testes Unitár
 			const frameHugeA4 = computeLockedCartographicFrame([780000, 8570000, 815000, 8595000], 'A4');
 			expect(frameHugeA4.scaleDenominator).toBeGreaterThanOrEqual(250000);
 			expect(frameHugeA4.mapWidthM).toBeGreaterThanOrEqual((815000 - 780000) * 1.24);
+
+			// AOI pequena (~0,86 ha = 100m x 86m) respeita escala mínima 1:10.000 e cobertura integral da CanonicalGrid
+			const smallAoi = makeUtmBoxAoi(812700, 8593550, 812800, 8593636, 31980);
+			const smallGrid = createCanonicalGrid(smallAoi, 31980);
+			const frameSmallA3 = computeLockedCartographicFrame(smallGrid.aoiBoundsUtm, 'A3');
+			expect(frameSmallA3.scaleDenominator).toBe(MIN_SENTINEL2_SCALE_DENOMINATOR);
+			expect(frameSmallA3.scaleDenominator).toBe(10000);
+			expect(smallGrid.e0).toBeLessThanOrEqual(frameSmallA3.mapBboxUtm[0]);
+			expect(smallGrid.e1).toBeGreaterThanOrEqual(frameSmallA3.mapBboxUtm[2]);
+			expect(smallGrid.n0).toBeLessThanOrEqual(frameSmallA3.mapBboxUtm[1]);
+			expect(smallGrid.n1).toBeGreaterThanOrEqual(frameSmallA3.mapBboxUtm[3]);
 
 			// Formatadores geodésicos
 			expect(formatScaleRatio(25000)).toBe('1:25.000');

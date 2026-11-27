@@ -166,7 +166,7 @@ export async function composePrintFramePngDataUri(params: {
 		return `data:image/png;base64,${emptyBuf.toString('base64')}`;
 	}
 
-	const resizedPatch = await sharp(params.sourcePngBuffer)
+	const resizePipeline = sharp(params.sourcePngBuffer)
 		.extract({
 			left: plan.srcLeft,
 			top: plan.srcTop,
@@ -176,11 +176,15 @@ export async function composePrintFramePngDataUri(params: {
 		.flatten({ background: { r: 241, g: 245, b: 249 } })
 		.ensureAlpha(1)
 		.resize(plan.patchW, plan.patchH, {
-			kernel: sharp.kernel.lanczos3,
+			kernel: sharp.kernel.mitchell,
 			fit: 'fill',
-		})
-		.png()
-		.toBuffer();
+		});
+
+	if (plan.patchW > plan.srcCropW * 1.25 || plan.patchH > plan.srcCropH * 1.25) {
+		resizePipeline.sharpen({ sigma: 0.85, m1: 0.7, m2: 1.5 });
+	}
+
+	const resizedPatch = await resizePipeline.png().toBuffer();
 
 	const finalPatch = await clipResizedPatchIfNeeded(resizedPatch, plan);
 

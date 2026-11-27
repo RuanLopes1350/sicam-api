@@ -82,23 +82,12 @@ export function resolveOpticalRadiometry(
 	}
 	const nodataValues = Array.from(nodataSet);
 
-	// Prioridade 1 — Metadado explícito raster:bands (scale + offset já na unidade final)
-	if (typeof bandMeta?.scale === 'number' && typeof bandMeta?.offset === 'number') {
-		return {
-			scale: bandMeta.scale,
-			offsetFinal: bandMeta.offset,
-			nodataValues,
-			boaOffsetApplied: bandMeta.offset < 0,
-			source: 'stac_raster_bands',
-		};
-	}
-
 	const scale =
 		typeof bandMeta?.scale === 'number' && Number.isFinite(bandMeta.scale)
 			? bandMeta.scale
 			: 0.0001;
 
-	// Prioridade 3 — INPE Brazil Data Cube padronizado por fator 10000 (offset = 0)
+	// Prioridade 1 — INPE Brazil Data Cube padronizado por fator 10000 (offset = 0)
 	if (provider === 'inpe_bdc') {
 		return {
 			scale,
@@ -109,19 +98,57 @@ export function resolveOpticalRadiometry(
 		};
 	}
 
-	// Prioridade 2a — Flag earthsearch:boa_offset_applied
+	// Prioridade 2 — Flag explícita earthsearch:boa_offset_applied (evita dupla subtração quando raster:bands mantém offset=-0.1 estático)
 	const earthSearchFlag = item.properties['earthsearch:boa_offset_applied'];
-	if (typeof earthSearchFlag === 'boolean') {
+	if (earthSearchFlag === true) {
 		return {
 			scale,
-			offsetFinal: earthSearchFlag ? -1000 * scale : 0,
+			offsetFinal: 0,
 			nodataValues,
-			boaOffsetApplied: earthSearchFlag,
+			boaOffsetApplied: true,
+			source: 'earthsearch_flag',
+		};
+	}
+	if (earthSearchFlag === false) {
+		const rawBaseline = item.properties['s2:processing_baseline'];
+		const baselineNum =
+			rawBaseline !== undefined && rawBaseline !== null
+				? Number.parseFloat(String(rawBaseline))
+				: Number.NaN;
+		if (Number.isFinite(baselineNum) && baselineNum >= 4.0) {
+			const fallbackOffset =
+				typeof bandMeta?.offset === 'number' && bandMeta.offset < 0
+					? bandMeta.offset
+					: -1000 * scale;
+			return {
+				scale,
+				offsetFinal: fallbackOffset,
+				nodataValues,
+				boaOffsetApplied: true,
+				source: 'earthsearch_flag',
+			};
+		}
+		return {
+			scale,
+			offsetFinal: 0,
+			nodataValues,
+			boaOffsetApplied: false,
 			source: 'earthsearch_flag',
 		};
 	}
 
-	// Prioridade 2b — s2:processing_baseline >= 4.00
+	// Prioridade 3 — Metadado explícito raster:bands (quando não há flag earthsearch:boa_offset_applied)
+	if (typeof bandMeta?.scale === 'number' && typeof bandMeta?.offset === 'number') {
+		return {
+			scale: bandMeta.scale,
+			offsetFinal: bandMeta.offset,
+			nodataValues,
+			boaOffsetApplied: bandMeta.offset < 0,
+			source: 'stac_raster_bands',
+		};
+	}
+
+	// Prioridade 4 — s2:processing_baseline >= 4.00
 	const rawBaseline = item.properties['s2:processing_baseline'];
 	if (rawBaseline !== undefined && rawBaseline !== null) {
 		const baselineNum = Number.parseFloat(String(rawBaseline));

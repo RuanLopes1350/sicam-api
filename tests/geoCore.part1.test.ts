@@ -302,6 +302,43 @@ describe('Task API-06 — Motor Científico geo-core Parte 1', () => {
 			expect(Number.isNaN(dnToBoaReflectance(0, calRed2026))).toBe(true);
 			expect(Number.isNaN(dnToBoaReflectance(-9999, calInpeRed))).toBe(true);
 
+			// Bug real Earth Search: flag earthsearch:boa_offset_applied=true coexistindo com raster:bands.offset=-0.1 estático
+			const itemEarthSearchAlreadyApplied = makeItem({
+				id: 'S2B_20LRL_20200601_1_L2A',
+				properties: {
+					's2:processing_baseline': '05.00',
+					'earthsearch:boa_offset_applied': true,
+				},
+				assets: {
+					blue: {
+						href: 'https://sentinel-cogs.s3.us-west-2.amazonaws.com/b02.tif',
+						'raster:bands': [{ scale: 0.0001, offset: -0.1, nodata: 0 }],
+					},
+					green: {
+						href: 'https://sentinel-cogs.s3.us-west-2.amazonaws.com/b03.tif',
+						'raster:bands': [{ scale: 0.0001, offset: -0.1, nodata: 0 }],
+					},
+					red: {
+						href: 'https://sentinel-cogs.s3.us-west-2.amazonaws.com/b04.tif',
+						'raster:bands': [{ scale: 0.0001, offset: -0.1, nodata: 0 }],
+					},
+					nir: {
+						href: 'https://sentinel-cogs.s3.us-west-2.amazonaws.com/b08.tif',
+						'raster:bands': [{ scale: 0.0001, offset: -0.1, nodata: 0 }],
+					},
+					scl: { href: 'https://sentinel-cogs.s3.us-west-2.amazonaws.com/scl.tif' },
+				},
+			});
+			const calAlreadyApplied = resolveOpticalRadiometry(
+				itemEarthSearchAlreadyApplied,
+				'aws_earth_search',
+				'RED',
+			);
+			expect(calAlreadyApplied.source).toBe('earthsearch_flag');
+			expect(calAlreadyApplied.offsetFinal).toBe(0);
+			expect(calAlreadyApplied.boaOffsetApplied).toBe(true);
+			expect(dnToBoaReflectance(220, calAlreadyApplied)).toBeCloseTo(0.022, 5);
+
 			// Executa classificação de controle florestal 2019 vs 2026 em 100 pixels intactos -> 0,00% falso positivo (RNF-07)
 			const n = 100;
 			const aoiMask = new Uint8Array(n).fill(1);

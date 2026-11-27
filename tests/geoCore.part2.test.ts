@@ -535,6 +535,35 @@ describe('Task API-07 — Motor Científico geo-core Parte 2', () => {
 				.raw()
 				.toBuffer({ resolveWithObject: true });
 			expect(rawT0Rgb[3]).toBe(0);
+
+			// Vegetação natural com baixa refletância BOA (R=0.022, G=0.045, B=0.018) deve gerar verde vivo natural (G > R > B e não preto)
+			const forestSmallAoi = makeUtmBoxAoiGeoJson(804000, 8594000, 804100, 8594100, 31980);
+			const forestGrid = createCanonicalGrid(forestSmallAoi, 31980);
+			const fn = forestGrid.pixelCount;
+			const forestRendered = await renderCanonicalEvidenceRasters({
+				grid: forestGrid,
+				t0: {
+					blue: new Float32Array(fn).fill(0.018),
+					green: new Float32Array(fn).fill(0.045),
+					red: new Float32Array(fn).fill(0.022),
+					nir: new Float32Array(fn).fill(0.35),
+					scl: new Uint8Array(fn).fill(4),
+				},
+				t1: {
+					blue: new Float32Array(fn).fill(0.09),
+					green: new Float32Array(fn).fill(0.14),
+					red: new Float32Array(fn).fill(0.20),
+					nir: new Float32Array(fn).fill(0.24),
+					scl: new Uint8Array(fn).fill(5),
+				},
+				filteredClassMap: new Uint8Array(fn),
+			});
+			const { data: rawForestRgb } = await sharp(forestRendered.rasters.t0_rgb.buffer)
+				.raw()
+				.toBuffer({ resolveWithObject: true });
+			expect(rawForestRgb[0]!).toBeGreaterThan(10); // R não zerado
+			expect(rawForestRgb[1]!).toBeGreaterThan(rawForestRgb[0]!); // G > R
+			expect(rawForestRgb[0]!).toBeGreaterThan(rawForestRgb[2]!); // R > B
 		});
 	});
 

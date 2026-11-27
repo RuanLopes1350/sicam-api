@@ -116,6 +116,65 @@ export function computePairedCleanStretchBounds(
 	};
 }
 
+function computeSceneChannelPercentiles(
+	band: Float32Array,
+	scl: Uint8Array,
+	fallback: [number, number],
+): ChannelStretchBounds {
+	const emptyScl = new Uint8Array(0);
+	const emptyBand = new Float32Array(0);
+	return computePairedCleanStretchBounds(band, scl, emptyBand, emptyScl, fallback);
+}
+
+// Preserva balanço de branco natural em RGB BOA (mesmos ganhos/limites comuns em R, G e B por cena)
+function computeSceneTrueColorStretchBounds(scene: {
+	red: Float32Array;
+	green: Float32Array;
+	blue: Float32Array;
+	scl: Uint8Array;
+}): {
+	red: ChannelStretchBounds;
+	green: ChannelStretchBounds;
+	blue: ChannelStretchBounds;
+} {
+	const rStats = computeSceneChannelPercentiles(scene.red, scene.scl, FALLBACK_VISIBLE_BOUNDS);
+	const gStats = computeSceneChannelPercentiles(scene.green, scene.scl, FALLBACK_VISIBLE_BOUNDS);
+	const bStats = computeSceneChannelPercentiles(scene.blue, scene.scl, FALLBACK_VISIBLE_BOUNDS);
+
+	const minP2 = Math.min(rStats.p2, gStats.p2, bStats.p2);
+	const low = Number(Math.min(0.025, Math.max(0, minP2 * 0.55)).toFixed(4));
+	const maxP98 = Math.max(rStats.p98, gStats.p98, bStats.p98);
+	const high = Number(Math.min(0.32, Math.max(0.14, maxP98)).toFixed(4));
+
+	const shared: ChannelStretchBounds = {
+		p2: low,
+		p98: Math.max(low + 0.08, high),
+		cleanSampleCount: Math.min(rStats.cleanSampleCount, gStats.cleanSampleCount, bStats.cleanSampleCount),
+		usedFallback: rStats.usedFallback || gStats.usedFallback || bStats.usedFallback,
+	};
+
+	return {
+		red: shared,
+		green: shared,
+		blue: shared,
+	};
+}
+
+function clampFalseColorChannelBounds(
+	stats: ChannelStretchBounds,
+	minSpan: number,
+	maxCap: number,
+): ChannelStretchBounds {
+	const low = Number(Math.min(0.03, Math.max(0, stats.p2)).toFixed(4));
+	const high = Number(Math.max(low + minSpan, Math.min(maxCap, stats.p98)).toFixed(4));
+	return {
+		p2: low,
+		p98: high,
+		cleanSampleCount: stats.cleanSampleCount,
+		usedFallback: stats.usedFallback,
+	};
+}
+
 function stretchValueToByte(
 	val: number,
 	bounds: ChannelStretchBounds,
@@ -287,16 +346,51 @@ export async function renderCanonicalEvidenceRasters(params: {
 		nir: computePairedCleanStretchBounds(t0.nir, t0.scl, t1.nir, t1.scl, FALLBACK_NIR_BOUNDS),
 	};
 
+	const t0TrueColor = computeSceneTrueColorStretchBounds(t0);
+	const t1TrueColor = computeSceneTrueColorStretchBounds(t1);
+
+	const t0NirBounds = clampFalseColorChannelBounds(
+		computeSceneChannelPercentiles(t0.nir, t0.scl, FALLBACK_NIR_BOUNDS),
+		0.2,
+		0.55,
+	);
+	const t0RedFcBounds = clampFalseColorChannelBounds(
+		computeSceneChannelPercentiles(t0.red, t0.scl, FALLBACK_VISIBLE_BOUNDS),
+		0.12,
+		0.3,
+	);
+	const t0GreenFcBounds = clampFalseColorChannelBounds(
+		computeSceneChannelPercentiles(t0.green, t0.scl, FALLBACK_VISIBLE_BOUNDS),
+		0.12,
+		0.3,
+	);
+
+	const t1NirBounds = clampFalseColorChannelBounds(
+		computeSceneChannelPercentiles(t1.nir, t1.scl, FALLBACK_NIR_BOUNDS),
+		0.2,
+		0.55,
+	);
+	const t1RedFcBounds = clampFalseColorChannelBounds(
+		computeSceneChannelPercentiles(t1.red, t1.scl, FALLBACK_VISIBLE_BOUNDS),
+		0.12,
+		0.3,
+	);
+	const t1GreenFcBounds = clampFalseColorChannelBounds(
+		computeSceneChannelPercentiles(t1.green, t1.scl, FALLBACK_VISIBLE_BOUNDS),
+		0.12,
+		0.3,
+	);
+
 	const t0RgbRgba = buildCompositeRgbaBuffer({
 		pixelCount: n,
 		rBand: t0.red,
 		gBand: t0.green,
 		bBand: t0.blue,
 		scl: t0.scl,
-		rBounds: stretchAudit.red,
-		gBounds: stretchAudit.green,
-		bBounds: stretchAudit.blue,
-		gamma: 1.15,
+		rBounds: t0TrueColor.red,
+		gBounds: t0TrueColor.green,
+		bBounds: t0TrueColor.blue,
+		gamma: 1.45,
 	});
 
 	const t1RgbRgba = buildCompositeRgbaBuffer({
@@ -305,10 +399,10 @@ export async function renderCanonicalEvidenceRasters(params: {
 		gBand: t1.green,
 		bBand: t1.blue,
 		scl: t1.scl,
-		rBounds: stretchAudit.red,
-		gBounds: stretchAudit.green,
-		bBounds: stretchAudit.blue,
-		gamma: 1.15,
+		rBounds: t1TrueColor.red,
+		gBounds: t1TrueColor.green,
+		bBounds: t1TrueColor.blue,
+		gamma: 1.45,
 	});
 
 	const t0FalseColorRgba = buildCompositeRgbaBuffer({
@@ -317,10 +411,10 @@ export async function renderCanonicalEvidenceRasters(params: {
 		gBand: t0.red,
 		bBand: t0.green,
 		scl: t0.scl,
-		rBounds: stretchAudit.nir,
-		gBounds: stretchAudit.red,
-		bBounds: stretchAudit.green,
-		gamma: 1.0,
+		rBounds: t0NirBounds,
+		gBounds: t0RedFcBounds,
+		bBounds: t0GreenFcBounds,
+		gamma: 1.25,
 	});
 
 	const t1FalseColorRgba = buildCompositeRgbaBuffer({
@@ -329,10 +423,10 @@ export async function renderCanonicalEvidenceRasters(params: {
 		gBand: t1.red,
 		bBand: t1.green,
 		scl: t1.scl,
-		rBounds: stretchAudit.nir,
-		gBounds: stretchAudit.red,
-		bBounds: stretchAudit.green,
-		gamma: 1.0,
+		rBounds: t1NirBounds,
+		gBounds: t1RedFcBounds,
+		bBounds: t1GreenFcBounds,
+		gamma: 1.25,
 	});
 
 	const deltaMaskRgba = buildDeltaMaskRgbaBuffer(filteredClassMap);

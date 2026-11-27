@@ -139,6 +139,19 @@ export function detectBoaOffsetApplied(item: StacItemRaw, provider: StacProvider
 	const processingBaseline =
 		typeof rawBaseline === 'string' && rawBaseline.trim().length > 0 ? rawBaseline.trim() : null;
 
+	const baselineNum =
+		processingBaseline !== null ? Number.parseFloat(processingBaseline) : Number.NaN;
+
+	if (item.properties['earthsearch:boa_offset_applied'] === true) {
+		return { processingBaseline, boaOffsetApplied: true };
+	}
+	if (item.properties['earthsearch:boa_offset_applied'] === false) {
+		return {
+			processingBaseline,
+			boaOffsetApplied: Number.isFinite(baselineNum) && baselineNum >= 4.0,
+		};
+	}
+
 	const cfg = STAC_PROVIDER_CONFIG[provider];
 	for (const redKey of cfg.opticalBandAssetKeys.red) {
 		const bandMeta = item.assets[redKey]?.['raster:bands']?.[0];
@@ -150,18 +163,8 @@ export function detectBoaOffsetApplied(item: StacItemRaw, provider: StacProvider
 		}
 	}
 
-	if (item.properties['earthsearch:boa_offset_applied'] === true) {
+	if (Number.isFinite(baselineNum) && baselineNum >= 4.0) {
 		return { processingBaseline, boaOffsetApplied: true };
-	}
-	if (item.properties['earthsearch:boa_offset_applied'] === false) {
-		return { processingBaseline, boaOffsetApplied: false };
-	}
-
-	if (processingBaseline) {
-		const num = Number.parseFloat(processingBaseline);
-		if (Number.isFinite(num) && num >= 4.0) {
-			return { processingBaseline, boaOffsetApplied: true };
-		}
 	}
 
 	return { processingBaseline, boaOffsetApplied: false };
