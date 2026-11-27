@@ -90,6 +90,14 @@ class RunController {
 		return reply.code(200).send(asset.stream);
 	}
 
+	async getWaybackTimeline(request: FastifyRequest, reply: FastifyReply) {
+		assertAuthorizedUser(request.authUser, ['admin', 'analyst', 'auditor']);
+		assertRequiredParams(request.params, ['runId']);
+
+		const timeline = await runService.getRunWaybackTimeline(request.params);
+		return reply.code(200).send(timeline);
+	}
+
 	async streamRunEvents(request: FastifyRequest, reply: FastifyReply) {
 		const actor = assertAuthorizedUser(request.authUser, ['admin', 'analyst', 'auditor']);
 		assertRequiredParams(request.params, ['runId']);

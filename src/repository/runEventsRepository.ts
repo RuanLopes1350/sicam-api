@@ -33,6 +33,8 @@ export interface CartographyExportJobPayload {
 	caseId: string;
 	paperFormat: PaperFormat;
 	observations: string | null;
+	t0WaybackReleaseNum?: number | null;
+	t1WaybackReleaseNum?: number | null;
 	requestedByUserId: string;
 	correlationId: string;
 }

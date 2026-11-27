@@ -18,6 +18,7 @@ import {
 	RunIdParamsSchema,
 	RunRasterParamsSchema,
 	RunRasterQuerySchema,
+	RunWaybackResponseSchema,
 } from '../utils/validation/runValidation.js';
 
 export const runRoutes: FastifyPluginAsyncZod = async (app) => {
@@ -160,5 +161,26 @@ export const runRoutes: FastifyPluginAsyncZod = async (app) => {
 			},
 		},
 		runController.streamRasterAsset.bind(runController),
+	);
+
+	app.get(
+		'/runs/:runId/wayback',
+		{
+			config: { rateLimit: { max: 60, timeWindow: '1 minute' } },
+			preHandler: [requireAuth(['admin', 'analyst', 'auditor'])],
+			schema: {
+				tags: ['Runs'],
+				summary:
+					'Descobre safras históricas Esri World Imagery Wayback com alterações reais sobre a AOI para comparação em alta resolução',
+				params: RunIdParamsSchema,
+				response: {
+					200: RunWaybackResponseSchema,
+					400: ProblemDetailsSchema,
+					401: ProblemDetailsSchema,
+					404: ProblemDetailsSchema,
+				},
+			},
+		},
+		runController.getWaybackTimeline.bind(runController),
 	);
 };

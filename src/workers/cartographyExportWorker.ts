@@ -20,7 +20,15 @@ export interface CartographyExportWorkerOptions {
 export async function processCartographyExportJob(
 	job: Job<CartographyExportJobPayload>,
 ): Promise<void> {
-	const { runId, paperFormat, observations, requestedByUserId, correlationId } = job.data;
+	const {
+		runId,
+		paperFormat,
+		observations,
+		t0WaybackReleaseNum,
+		t1WaybackReleaseNum,
+		requestedByUserId,
+		correlationId,
+	} = job.data;
 
 	const snap = await runRepository.findSnapshotById(runId);
 	if (!snap) {
@@ -61,6 +69,8 @@ export async function processCartographyExportJob(
 			runId,
 			paperFormat,
 			observations,
+			t0WaybackReleaseNum,
+			t1WaybackReleaseNum,
 			issuer,
 			onProgress: async (progressPct, step) => {
 				await runEventsRepository.publishEvent(runId, 'progress', {

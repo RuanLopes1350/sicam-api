@@ -245,6 +245,35 @@ export const ReviewFeatureResponseSchema = z
 	})
 	.strict();
 
+export const WaybackVintageItemSchema = z
+	.object({
+		releaseNum: z.number().int().positive(),
+		itemId: z.string().min(1),
+		itemTitle: z.string().min(1),
+		releaseDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+		captureDate: z
+			.string()
+			.regex(/^\d{4}-\d{2}-\d{2}$/)
+			.nullable(),
+		effectiveDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+		resolutionM: z.number().positive().nullable(),
+		providerLabel: z.string().nullable(),
+		maxZoom: z.number().int().min(10).max(19),
+		tileUrlTemplate: z.string().url(),
+	})
+	.strict();
+
+export const RunWaybackResponseSchema = z
+	.object({
+		runId: z.string().uuid(),
+		aoiCenterLonLat: z.tuple([z.number(), z.number()]),
+		maxZoom: z.number().int().min(10).max(19),
+		vintages: z.array(WaybackVintageItemSchema),
+		selectedT0: WaybackVintageItemSchema.nullable(),
+		selectedT1: WaybackVintageItemSchema.nullable(),
+	})
+	.strict();
+
 export type RunSceneSelection = z.infer<typeof RunSceneSelectionSchema>;
 export type CreateRunBody = z.infer<typeof CreateRunBodySchema>;
 export type ListRunFeaturesQuery = z.infer<typeof ListRunFeaturesQuerySchema>;
@@ -252,3 +281,5 @@ export type ReviewFeatureBody = z.infer<typeof ReviewFeatureBodySchema>;
 export type RunAreaSummary = z.infer<typeof RunAreaSummarySchema>;
 export type DetectedFeatureItem = z.infer<typeof DetectedFeatureItemSchema>;
 export type DetectedFeaturePolygonGeoJson = z.infer<typeof DetectedFeaturePolygonGeoJsonSchema>;
+export type WaybackVintageItemDto = z.infer<typeof WaybackVintageItemSchema>;
+export type RunWaybackResponse = z.infer<typeof RunWaybackResponseSchema>;

@@ -2,7 +2,9 @@ import { PassThrough, Readable } from 'node:stream';
 import type { RunStatus } from '../config/db/schema/enums.js';
 import { withTransaction } from '../config/dbConfig.js';
 import { env } from '../config/env.js';
+import { logger } from '../config/loggerConfig.js';
 import auditRepository from '../repository/auditRepository.js';
+import cartographyRepository from '../repository/cartographyRepository.js';
 import caseRepository from '../repository/caseRepository.js';
 import runEventsRepository, {
 	isTerminalSseEvent,
@@ -20,6 +22,10 @@ import {
 	type NormalizedStacItem,
 	type StacCatalogAdapter,
 } from '../utils/geo/stacClient.js';
+import {
+	discoverLocalWaybackVintages,
+	selectBestWaybackPair,
+} from '../utils/geo/waybackClient.js';
 import { StacCircuitBreaker } from '../utils/helpers/antiSsrfHttp.js';
 import { DomainError } from '../utils/helpers/domainError.js';
 import type {
@@ -767,6 +773,59 @@ export class RunService {
 			mimeType: asset.mimeType,
 			sizeBytes: upscaledBuffer.byteLength,
 		};
+	}
+
+	async getRunWaybackTimeline(rawParams: unknown) {
+		const { runId } = RunIdParamsSchema.parse(rawParams);
+		const bundle = await cartographyRepository.findCartographyRunBundle(runId);
+		if (!bundle) {
+			throw new DomainError('ERR_RESOURCE_NOT_FOUND', 'Execução de análise não encontrada.');
+		}
+
+		if (!env.ENABLE_WAYBACK_HIRES) {
+			return {
+				runId: bundle.runId,
+				aoiCenterLonLat: bundle.aoiCenterLonLat,
+				maxZoom: 17,
+				vintages: [],
+				selectedT0: null,
+				selectedT1: null,
+			};
+		}
+
+		try {
+			const discovery = await discoverLocalWaybackVintages({
+				lon: bundle.aoiCenterLonLat[0],
+				lat: bundle.aoiCenterLonLat[1],
+			});
+			const pair = selectBestWaybackPair(
+				discovery.vintages,
+				bundle.t0AcquiredAt,
+				bundle.t1AcquiredAt,
+			);
+
+			return {
+				runId: bundle.runId,
+				aoiCenterLonLat: bundle.aoiCenterLonLat,
+				maxZoom: discovery.maxZoom,
+				vintages: discovery.vintages,
+				selectedT0: pair.selectedT0,
+				selectedT1: pair.selectedT1,
+			};
+		} catch (err) {
+			logger.warn(
+				{ runId: bundle.runId, err },
+				'Indisponibilidade temporária ao consultar catálogo Wayback; retornando fallback vazio.',
+			);
+			return {
+				runId: bundle.runId,
+				aoiCenterLonLat: bundle.aoiCenterLonLat,
+				maxZoom: 17,
+				vintages: [],
+				selectedT0: null,
+				selectedT1: null,
+			};
+		}
 	}
 
 	// OpenAPI Seção 4.2: Snapshot obrigatório + Pub/Sub Redis `run:events:{runId}` + heartbeat 15s + zero race condition

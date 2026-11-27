@@ -46,6 +46,7 @@ const envSchema = z.object({
 	MAX_AOI_VERTICES: z.coerce.number().int().min(4).max(500).default(500),
 	MAX_ACTIVE_RUNS_PER_USER: z.coerce.number().int().min(1).max(10).default(2),
 	ENFORCE_IMPORTED_UF_COVERAGE: booleanFromEnv.default(true),
+	ENABLE_WAYBACK_HIRES: booleanFromEnv.default(true),
 	GEO_MAX_PIXELS_GUARD: z.coerce.number().int().positive().default(8_000_000),
 	ENGINE_VERSION: z.string().min(1).default('1.0.0'),
 });

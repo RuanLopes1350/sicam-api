@@ -19,6 +19,8 @@ export const RequestExportBodySchema = z
 	.object({
 		paperFormat: z.enum(paperFormatEnum.enumValues).default('A3'),
 		observations: z.string().trim().max(600).nullable().optional(),
+		t0WaybackReleaseNum: z.number().int().positive().nullable().optional(),
+		t1WaybackReleaseNum: z.number().int().positive().nullable().optional(),
 	})
 	.strict();
 

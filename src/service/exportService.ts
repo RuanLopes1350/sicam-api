@@ -97,6 +97,8 @@ export class ExportService {
 						caseId: locked.caseId,
 						paperFormat: body.paperFormat,
 						hasObservations: observations !== null,
+						t0WaybackReleaseNum: body.t0WaybackReleaseNum ?? null,
+						t1WaybackReleaseNum: body.t1WaybackReleaseNum ?? null,
 					},
 				},
 				tx,
@@ -111,6 +113,8 @@ export class ExportService {
 				caseId: txResult.caseId,
 				paperFormat: body.paperFormat,
 				observations,
+				t0WaybackReleaseNum: body.t0WaybackReleaseNum ?? null,
+				t1WaybackReleaseNum: body.t1WaybackReleaseNum ?? null,
 				requestedByUserId: actor.id,
 				correlationId: clientCtx.correlationId,
 			});

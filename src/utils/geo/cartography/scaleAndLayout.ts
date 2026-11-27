@@ -4,6 +4,8 @@ export const PX_PER_MM_300_DPI = 300 / 25.4;
 
 // Sentinel-2 (10 m/pixel): piso de 1:25.000 garante >= ~63,5 DPI nativos no papel sem quadriculado/borrão em AOIs pequenas
 export const MIN_SENTINEL2_SCALE_DENOMINATOR = 25_000;
+// Imagery Wayback (~0,3m - 1m/pixel): permite escala de detalhe 1:2.500 sem perda de nitidez
+export const MIN_HIRES_SCALE_DENOMINATOR = 2_500;
 
 export const NORMALIZED_CARTOGRAPHIC_SCALES = [
 	2500,

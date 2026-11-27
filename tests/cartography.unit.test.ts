@@ -6,6 +6,7 @@ import {
 	buildCartographicPlateHtml,
 	composeCloudHatchOverlayDataUri,
 	composePrintFramePngDataUri,
+	composeWaybackUtmFramePngDataUri,
 	computeGraphicScaleBar,
 	computeLockedCartographicFrame,
 	computeUtmGridLines,
@@ -16,6 +17,7 @@ import {
 	formatScaleDistanceLabel,
 	formatScaleRatio,
 	formatUtmMetersLabel,
+	MIN_HIRES_SCALE_DENOMINATOR,
 	MIN_SENTINEL2_SCALE_DENOMINATOR,
 	NORMALIZED_CARTOGRAPHIC_SCALES,
 	PAPER_LAYOUTS,
@@ -27,6 +29,10 @@ import {
 } from '../src/utils/geo/cartography/index.js';
 import { createCanonicalGrid } from '../src/utils/geo/core/index.js';
 import { projectCoords } from '../src/utils/geo/projRegistry.js';
+import {
+	discoverLocalWaybackVintages,
+	selectBestWaybackPair,
+} from '../src/utils/geo/waybackClient.js';
 import type { AoiPolygonGeoJson } from '../src/utils/validation/caseValidation.js';
 
 function makeUtmBoxAoi(
@@ -453,6 +459,159 @@ describe('Task API-09 — Motor Cartográfico A4/A3 (300 DPI) — Testes Unitár
 			expect(html).toContain('AVISO RN-04: VISIBILIDADE COMPROMETIDA');
 			expect(html).toContain('AVISO RF-14: DIFERENÇA SAZONAL');
 			expect(html).toContain('<svg'); // QR Code local embarcado
+		});
+	});
+
+	describe('4. Alta Resolução Wayback (Descoberta Local, Compositor 300 DPI UTM e Escala 1:2.500)', () => {
+		it('deve descobrir alterações locais Wayback com Anti-SSRF, parear T0/T1 e compor quadro A4 1:2.500 em 300 DPI', async () => {
+			// 1. Escala 1:2.500 para AOI ~0,86 ha usando MIN_HIRES_SCALE_DENOMINATOR
+			const smallAoi = makeUtmBoxAoi(812700, 8593550, 812800, 8593636, 31980);
+			const smallGrid = createCanonicalGrid(smallAoi, 31980);
+			const hiresA4 = computeLockedCartographicFrame(
+				smallGrid.aoiBoundsUtm,
+				'A4',
+				MIN_HIRES_SCALE_DENOMINATOR,
+			);
+			expect(MIN_HIRES_SCALE_DENOMINATOR).toBe(2500);
+			expect(hiresA4.scaleDenominator).toBe(2500);
+
+			// 2. Descoberta local e pareamento T0/T1 com fetch mockado
+			const tileBuf = Buffer.alloc(256 * 256 * 4, 140);
+			for (let i = 0; i < 256 * 256; i++) {
+				tileBuf[i * 4] = i % 255;
+				tileBuf[i * 4 + 1] = 160;
+				tileBuf[i * 4 + 2] = 90;
+				tileBuf[i * 4 + 3] = 255;
+			}
+			const syntheticTilePng = await sharp(tileBuf, {
+				raw: { width: 256, height: 256, channels: 4 },
+			})
+				.png()
+				.toBuffer();
+
+			const catalogJson = {
+				'26334': {
+					itemID: 'id-2026',
+					itemTitle: 'World Imagery (Wayback 2026-08-05)',
+					metadataLayerUrl:
+						'https://metadata.maptiles.arcgis.com/arcgis/rest/services/World_Imagery_Metadata_2026/MapServer',
+				},
+				'49849': {
+					itemID: 'id-2024',
+					itemTitle: 'World Imagery (Wayback 2024-11-18)',
+					metadataLayerUrl:
+						'https://metadata.maptiles.arcgis.com/arcgis/rest/services/World_Imagery_Metadata_2024/MapServer',
+				},
+				'9181': {
+					itemID: 'id-2020',
+					itemTitle: 'World Imagery (Wayback 2020-09-02)',
+					metadataLayerUrl:
+						'https://metadata.maptiles.arcgis.com/arcgis/rest/services/World_Imagery_Metadata_2020/MapServer',
+				},
+			};
+
+			const mockFetch: typeof globalThis.fetch = async (input) => {
+				const url = typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url;
+				if (url.includes('waybackconfig.json')) {
+					return new Response(JSON.stringify(catalogJson), {
+						status: 200,
+						headers: { 'content-type': 'application/json' },
+					});
+				}
+				if (url.includes('/MapServer/tilemap/26334/17/')) {
+					return new Response(JSON.stringify({ data: [1], select: [26334] }), {
+						status: 200,
+						headers: { 'content-type': 'application/json' },
+					});
+				}
+				if (url.includes('/MapServer/tilemap/49849/17/')) {
+					return new Response(JSON.stringify({ data: [1], select: [9181] }), {
+						status: 200,
+						headers: { 'content-type': 'application/json' },
+					});
+				}
+				if (url.includes('World_Imagery_Metadata_2026')) {
+					return new Response(
+						JSON.stringify({
+							features: [
+								{
+									attributes: {
+										SRC_DATE: 20250516,
+										SRC_DATE2: Date.parse('2025-05-16T00:00:00Z'),
+										SRC_RES: 0.34,
+										NICE_NAME: 'Vivid',
+										NICE_DESC: 'Vantor',
+									},
+								},
+							],
+						}),
+						{ status: 200, headers: { 'content-type': 'application/json' } },
+					);
+				}
+				if (url.includes('World_Imagery_Metadata_2020')) {
+					return new Response(
+						JSON.stringify({
+							features: [
+								{
+									attributes: {
+										SRC_DATE: 20190810,
+										SRC_DATE2: Date.parse('2019-08-10T00:00:00Z'),
+										SRC_RES: 0.5,
+										NICE_NAME: 'Vivid',
+										NICE_DESC: 'Maxar',
+									},
+								},
+							],
+						}),
+						{ status: 200, headers: { 'content-type': 'application/json' } },
+					);
+				}
+				if (url.includes('/MapServer/tile/')) {
+					return new Response(syntheticTilePng, {
+						status: 200,
+						headers: { 'content-type': 'image/png' },
+					});
+				}
+				return new Response('Not Found', { status: 404 });
+			};
+
+			const lookupFn = async () => [{ address: '54.231.132.1', family: 4 }];
+			const discovery = await discoverLocalWaybackVintages({
+				lon: -60.145,
+				lat: -12.74,
+				safeFetchOptions: { fetchFn: mockFetch, lookupFn, maxAttempts: 1 },
+			});
+
+			expect(discovery.maxZoom).toBe(17);
+			expect(discovery.vintages).toHaveLength(2);
+			expect(discovery.vintages[0]!.releaseNum).toBe(26334);
+			expect(discovery.vintages[0]!.captureDate).toBe('2025-05-16');
+			expect(discovery.vintages[0]!.resolutionM).toBe(0.34);
+			expect(discovery.vintages[1]!.releaseNum).toBe(9181);
+			expect(discovery.vintages[1]!.captureDate).toBe('2019-08-10');
+
+			const pair = selectBestWaybackPair(
+				discovery.vintages,
+				new Date('2020-06-16T00:00:00Z'),
+				new Date('2026-09-23T00:00:00Z'),
+			);
+			expect(pair.selectedT0?.releaseNum).toBe(9181);
+			expect(pair.selectedT1?.releaseNum).toBe(26334);
+
+			// 3. Reprojeção UTM <-> Mercator 300 DPI em A4 (1482x1400 px exatos)
+			const hiresUri = await composeWaybackUtmFramePngDataUri({
+				releaseNum: 26334,
+				maxZoom: 17,
+				utmSrid: 31980,
+				mapBboxUtm: hiresA4.mapBboxUtm,
+				targetWidthPx: PAPER_LAYOUTS.A4.mapInnerWidthPx,
+				targetHeightPx: PAPER_LAYOUTS.A4.mapInnerHeightPx,
+				safeFetchOptions: { fetchFn: mockFetch, lookupFn, maxAttempts: 1 },
+			});
+			expect(hiresUri.startsWith('data:image/png;base64,')).toBe(true);
+			const meta = await sharp(Buffer.from(hiresUri.split(',')[1]!, 'base64')).metadata();
+			expect(meta.width).toBe(PAPER_LAYOUTS.A4.mapInnerWidthPx);
+			expect(meta.height).toBe(PAPER_LAYOUTS.A4.mapInnerHeightPx);
 		});
 	});
 });

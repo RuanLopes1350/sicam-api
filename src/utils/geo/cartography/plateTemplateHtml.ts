@@ -68,6 +68,11 @@ export interface BuildCartographicPlateHtmlInput {
 		registrationCode: string;
 	};
 	observations?: string | null;
+	visualBasemapSource?: {
+		t0Label: string;
+		t1Label: string;
+		isHiRes: boolean;
+	} | null;
 	datasetFingerprintSha256: string;
 	emittedAt: Date;
 }
@@ -85,6 +90,7 @@ export async function buildCartographicPlateHtml(
 		ibgeInsetSvg,
 		issuer,
 		observations,
+		visualBasemapSource,
 		datasetFingerprintSha256,
 		emittedAt,
 	} = input;
@@ -476,14 +482,14 @@ export async function buildCartographicPlateHtml(
         <div class="panel-wrapper">
           <div class="panel-banner">
             <span class="tag-t0">T0 — CENÁRIO ANTERIOR: ${formatDatePtBr(bundle.t0AcquiredAt)}</span>
-            <span>${escapeHtmlStrict(PROVIDER_LABELS[bundle.t0Provider])}</span>
+            <span>${escapeHtmlStrict(visualBasemapSource?.t0Label ?? PROVIDER_LABELS[bundle.t0Provider])}</span>
           </div>
           ${t0PanelSvg}
         </div>
         <div class="panel-wrapper">
           <div class="panel-banner">
             <span class="tag-t1">T1 — CENÁRIO ALVO: ${formatDatePtBr(bundle.t1AcquiredAt)}</span>
-            <span>${escapeHtmlStrict(PROVIDER_LABELS[bundle.t1Provider])}</span>
+            <span>${escapeHtmlStrict(visualBasemapSource?.t1Label ?? PROVIDER_LABELS[bundle.t1Provider])}</span>
           </div>
           ${t1PanelSvg}
         </div>
@@ -588,6 +594,7 @@ export async function buildCartographicPlateHtml(
               <div><strong>Referencial:</strong> SIRGAS 2000 / UTM ${utmZoneLabel} (EPSG:${bundle.utmSrid})</div>
               <div><strong>Cena T0:</strong> <span class="mono">${sanitizedT0Ids}</span> (${formatIsoToUtcCompact(bundle.t0AcquiredAt)}, ${formatPctPtBr(bundle.t0CloudPctAoi)}% nuvem)</div>
               <div><strong>Cena T1:</strong> <span class="mono">${sanitizedT1Ids}</span> (${formatIsoToUtcCompact(bundle.t1AcquiredAt)}, ${formatPctPtBr(bundle.t1CloudPctAoi)}% nuvem)</div>
+              ${visualBasemapSource?.isHiRes ? `<div><strong>Mosaico Visual PDF:</strong> ${escapeHtmlStrict(visualBasemapSource.t0Label)} / ${escapeHtmlStrict(visualBasemapSource.t1Label)}</div>` : ''}
               <div><strong>Parâmetros / Motor:</strong> ${sanitizedEngine}</div>
               <div><strong>Emissor:</strong> ${sanitizedIssuer} · <strong>Emissão:</strong> ${formatIsoToUtcCompact(emittedAt)}</div>
               <div><strong>Fingerprint Dados:</strong> <span class="mono">${sanitizedFingerprint.slice(0, 24)}…</span></div>

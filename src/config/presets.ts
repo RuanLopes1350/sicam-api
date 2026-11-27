@@ -58,3 +58,14 @@ export const STAC_WHITELISTED_HOSTS = new Set<string>([
 	'bdc.dpi.inpe.br',
 	'brazildatacube.dpi.inpe.br',
 ]);
+
+// Whitelist estática e imutável para tiles históricos Esri World Imagery Wayback e metadados ArcGIS
+export const WAYBACK_WHITELISTED_HOSTS = new Set<string>([
+	's3-us-west-2.amazonaws.com',
+	'wayback.maptiles.arcgis.com',
+	'wayback-a.maptiles.arcgis.com',
+	'wayback-b.maptiles.arcgis.com',
+	'metadata.maptiles.arcgis.com',
+	'server.arcgisonline.com',
+	'services.arcgisonline.com',
+]);

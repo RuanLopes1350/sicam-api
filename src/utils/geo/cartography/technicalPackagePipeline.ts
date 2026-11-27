@@ -28,6 +28,8 @@ export interface BuildRunTechnicalPackageParams {
 	runId: string;
 	paperFormat: PaperFormat;
 	observations: string | null;
+	t0WaybackReleaseNum?: number | null;
+	t1WaybackReleaseNum?: number | null;
 	issuer: {
 		id: string;
 		fullName: string;
@@ -191,6 +193,8 @@ export async function buildRunTechnicalPackage(
 			registrationCode: params.issuer.registrationCode,
 		},
 		observations: params.observations,
+		t0WaybackReleaseNum: params.t0WaybackReleaseNum,
+		t1WaybackReleaseNum: params.t1WaybackReleaseNum,
 		datasetFingerprintSha256,
 		emittedAt,
 		preloadedBundle: bundle,
