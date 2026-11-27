@@ -17,6 +17,7 @@ import {
 	RunFeaturesResponseSchema,
 	RunIdParamsSchema,
 	RunRasterParamsSchema,
+	RunRasterQuerySchema,
 } from '../utils/validation/runValidation.js';
 
 export const runRoutes: FastifyPluginAsyncZod = async (app) => {
@@ -148,6 +149,7 @@ export const runRoutes: FastifyPluginAsyncZod = async (app) => {
 				summary:
 					'Proxy autenticado em streaming da evidência PNG lossless armazenada no bucket S3 privado',
 				params: RunRasterParamsSchema,
+				querystring: RunRasterQuerySchema,
 				response: {
 					200: z.any(),
 					304: z.any(),

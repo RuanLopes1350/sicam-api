@@ -29,6 +29,12 @@ export const RunRasterParamsSchema = z
 	})
 	.strict();
 
+export const RunRasterQuerySchema = z
+	.object({
+		upscale: z.coerce.number().int().min(1).max(4).default(1),
+	})
+	.strict();
+
 // Cabeçalho padrão OpenAPI (Fastify normaliza nomes de headers para lowercase)
 export const CreateRunHeadersSchema = z.object({
 	'idempotency-key': z.string().uuid(),

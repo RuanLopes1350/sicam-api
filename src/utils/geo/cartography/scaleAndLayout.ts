@@ -2,8 +2,8 @@ import type { PaperFormat } from '../../../config/db/schema/enums.js';
 
 export const PX_PER_MM_300_DPI = 300 / 25.4;
 
-// Sentinel-2 (10 m/pixel): escala mais aberta que 1:10.000 evita ampliação excessiva (borrão) em AOIs < 5 ha
-export const MIN_SENTINEL2_SCALE_DENOMINATOR = 10_000;
+// Sentinel-2 (10 m/pixel): piso de 1:25.000 garante >= ~63,5 DPI nativos no papel sem quadriculado/borrão em AOIs pequenas
+export const MIN_SENTINEL2_SCALE_DENOMINATOR = 25_000;
 
 export const NORMALIZED_CARTOGRAPHIC_SCALES = [
 	2500,

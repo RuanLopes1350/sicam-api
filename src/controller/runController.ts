@@ -67,7 +67,11 @@ class RunController {
 		const headerVal = request.headers['if-none-match'];
 		const ifNoneMatch = Array.isArray(headerVal) ? headerVal[0] : headerVal;
 
-		const asset = await runService.getRasterAssetStream(request.params, ifNoneMatch);
+		const asset = await runService.getRasterAssetStream(
+			request.params,
+			ifNoneMatch,
+			request.query,
+		);
 
 		reply
 			.header('ETag', asset.etag)

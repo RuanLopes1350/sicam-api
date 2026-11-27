@@ -1,4 +1,4 @@
-import { PassThrough } from 'node:stream';
+import { PassThrough, Readable } from 'node:stream';
 import type { RunStatus } from '../config/db/schema/enums.js';
 import { withTransaction } from '../config/dbConfig.js';
 import { env } from '../config/env.js';
@@ -13,6 +13,7 @@ import runRepository, {
 } from '../repository/runRepository.js';
 import { storageRepository } from '../repository/storageRepository.js';
 import { resolveAndValidateAlgorithmParams } from '../utils/geo/core/ndviClassifier.js';
+import { upscaleEvidencePngProgressively } from '../utils/geo/core/rasterRenderer.js';
 import { computeAoiSclMetrics, type SclTileInput } from '../utils/geo/sclAnalyzer.js';
 import {
 	HttpStacCatalogAdapter,
@@ -38,6 +39,7 @@ import {
 	RunFeatureParamsSchema,
 	RunIdParamsSchema,
 	RunRasterParamsSchema,
+	RunRasterQuerySchema,
 	type RunSceneSelection,
 } from '../utils/validation/runValidation.js';
 import type { SclEvaluatorFn } from './sceneService.js';
@@ -705,8 +707,9 @@ export class RunService {
 		};
 	}
 
-	async getRasterAssetStream(rawParams: unknown, ifNoneMatch?: string) {
+	async getRasterAssetStream(rawParams: unknown, ifNoneMatch?: string, rawQuery?: unknown) {
 		const { runId, assetType } = RunRasterParamsSchema.parse(rawParams);
+		const { upscale } = RunRasterQuerySchema.parse(rawQuery ?? {});
 
 		const asset = await runRepository.findRasterAsset(runId, assetType);
 		if (!asset) {
@@ -716,10 +719,10 @@ export class RunService {
 			);
 		}
 
-		const etag = `"${asset.sha256}"`;
+		const etag = upscale > 1 ? `"${asset.sha256}-u${upscale}"` : `"${asset.sha256}"`;
 		if (ifNoneMatch) {
 			const cleanMatch = ifNoneMatch.replace(/^W\//, '').trim();
-			if (cleanMatch === etag || cleanMatch === asset.sha256) {
+			if (cleanMatch === etag || (upscale === 1 && cleanMatch === asset.sha256)) {
 				return {
 					notModified: true as const,
 					etag,
@@ -734,13 +737,35 @@ export class RunService {
 			asset.storageBucket,
 		);
 
+		if (upscale <= 1) {
+			return {
+				notModified: false as const,
+				stream: s3Object.stream,
+				etag,
+				sha256: asset.sha256,
+				mimeType: asset.mimeType,
+				sizeBytes: asset.sizeBytes,
+			};
+		}
+
+		const chunks: Buffer[] = [];
+		for await (const chunk of s3Object.stream) {
+			chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
+		}
+		const sourceBuffer = Buffer.concat(chunks);
+		const upscaledBuffer = await upscaleEvidencePngProgressively(
+			sourceBuffer,
+			upscale,
+			assetType === 'delta_ndvi_mask',
+		);
+
 		return {
 			notModified: false as const,
-			stream: s3Object.stream,
+			stream: Readable.from(upscaledBuffer),
 			etag,
 			sha256: asset.sha256,
 			mimeType: asset.mimeType,
-			sizeBytes: asset.sizeBytes,
+			sizeBytes: upscaledBuffer.byteLength,
 		};
 	}
 

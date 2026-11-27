@@ -53,8 +53,8 @@ export function createCanonicalGrid(
 
 	const deltaE = eMax - eMin;
 	const deltaN = nMax - nMin;
-	// Margem mínima de 950 m garante contexto >= ~2 km x 2 km para a escala mínima 1:10.000 do Sentinel-2 (10 m/px)
-	const marginM = Math.max(0.15 * Math.max(deltaE, deltaN), 950);
+	// Margem mínima de 2300 m garante cobertura integral (>= ~4,7 km x 4,7 km) para a escala mínima 1:25.000 no Sentinel-2 (10 m/px)
+	const marginM = Math.max(0.15 * Math.max(deltaE, deltaN), 2300);
 
 	const e0 = Math.floor((eMin - marginM) / 10) * 10;
 	const e1 = Math.ceil((eMax + marginM) / 10) * 10;

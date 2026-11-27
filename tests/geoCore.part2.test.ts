@@ -4,6 +4,7 @@ import { describe, expect, it } from 'vitest';
 import { ANALYSIS_PRESETS } from '../src/config/presets.js';
 import {
 	applyMorphologicalOpeningCross3x3,
+	applyNativeLuminanceMtfSharpen,
 	buildAllowedDomainMask,
 	classifyMultitemporalNdvi,
 	computePairedCleanStretchBounds,
@@ -16,6 +17,7 @@ import {
 	PIXEL_CLASS,
 	renderCanonicalEvidenceRasters,
 	runGeoCoreAnalysisPipeline,
+	upscaleEvidencePngProgressively,
 	vectorizeAllComponents,
 	vectorizeComponentToPolygons,
 } from '../src/utils/geo/core/index.js';
@@ -781,6 +783,58 @@ describe('Task API-07 — Motor Científico geo-core Parte 2', () => {
 					algorithmParams: ANALYSIS_PRESETS.TECHNICAL_STANDARD,
 				}),
 			).rejects.toThrow(DomainError);
+		});
+
+		it('deve aplicar deconvolução MTF de luminância preservando borda de contraste/nodata e super-amostrar PNG 4x em oitavas', async () => {
+			// Borda vertical 5x5: metade esquerda clara (180,140,100), metade direita escura (60,90,40), canto superior esquerdo nodata (alpha=0)
+			const w = 5;
+			const h = 5;
+			const rgba = new Uint8Array(w * h * 4);
+			for (let y = 0; y < h; y++) {
+				for (let x = 0; x < w; x++) {
+					const idx = (y * w + x) * 4;
+					if (x === 0 && y === 0) {
+						// nodata transparente deve permanecer intocado e não contaminar vizinhos
+						continue;
+					}
+					if (x < 2) {
+						rgba[idx] = 180;
+						rgba[idx + 1] = 140;
+						rgba[idx + 2] = 100;
+					} else {
+						rgba[idx] = 60;
+						rgba[idx + 1] = 90;
+						rgba[idx + 2] = 40;
+					}
+					rgba[idx + 3] = 255;
+				}
+			}
+
+			const sharpened = applyNativeLuminanceMtfSharpen(rgba, w, h, 0.85);
+			// Pixel nodata permanece zerado
+			expect(sharpened[0]).toBe(0);
+			expect(sharpened[3]).toBe(0);
+
+			// Na fronteira (x=1, y=2 claro adjacente a x=2 escuro), luminância sobe aumentando acutância
+			const leftEdgeOffset = (2 * w + 1) * 4;
+			const rightEdgeOffset = (2 * w + 2) * 4;
+			expect(sharpened[leftEdgeOffset]!).toBeGreaterThan(180);
+			// No lado escuro (x=2, y=2), luminância desce reforçando a borda
+			expect(sharpened[rightEdgeOffset + 1]!).toBeLessThan(90);
+
+			const srcPng = await sharp(sharpened, { raw: { width: w, height: h, channels: 4 } })
+				.png()
+				.toBuffer();
+			const upscaled4x = await upscaleEvidencePngProgressively(srcPng, 4, false);
+			const meta4x = await sharp(upscaled4x).metadata();
+			expect(meta4x.width).toBe(20);
+			expect(meta4x.height).toBe(20);
+
+			// Máscara categórica usa nearest-neighbor e preserva dimensões exatas
+			const mask4x = await upscaleEvidencePngProgressively(srcPng, 4, true);
+			const maskMeta = await sharp(mask4x).metadata();
+			expect(maskMeta.width).toBe(20);
+			expect(maskMeta.height).toBe(20);
 		});
 	});
 });

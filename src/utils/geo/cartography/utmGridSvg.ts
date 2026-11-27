@@ -140,6 +140,54 @@ function ringsGeoJsonToSvgPath(
 	return parts.join(' ');
 }
 
+function buildSmallAoiLocatorBracketsSvg(
+	rings4674: ReadonlyArray<ReadonlyArray<[number, number]>>,
+	utmSrid: number,
+	frame: LockedCartographicFrame,
+): string {
+	const outerRing = rings4674[0];
+	if (!outerRing || outerRing.length < 3) {
+		return '';
+	}
+
+	const utmCrs = `EPSG:${utmSrid}`;
+	let minX = Number.POSITIVE_INFINITY;
+	let minY = Number.POSITIVE_INFINITY;
+	let maxX = Number.NEGATIVE_INFINITY;
+	let maxY = Number.NEGATIVE_INFINITY;
+
+	for (const [lon, lat] of outerRing) {
+		const [e, n] = projectCoords('EPSG:4674', utmCrs, lon, lat);
+		const [xMm, yMm] = utmToPanelMm(e, n, frame);
+		if (xMm < minX) minX = xMm;
+		if (yMm < minY) minY = yMm;
+		if (xMm > maxX) maxX = xMm;
+		if (yMm > maxY) maxY = yMm;
+	}
+
+	const widthMm = maxX - minX;
+	const heightMm = maxY - minY;
+	if (!Number.isFinite(widthMm) || !Number.isFinite(heightMm) || (widthMm >= 14 && heightMm >= 14)) {
+		return '';
+	}
+
+	const pad = 4.5;
+	const arm = 3.2;
+	const x0 = minX - pad;
+	const y0 = minY - pad;
+	const x1 = maxX + pad;
+	const y1 = maxY + pad;
+
+	const d = [
+		`M${(x0 + arm).toFixed(2)} ${y0.toFixed(2)} L${x0.toFixed(2)} ${y0.toFixed(2)} L${x0.toFixed(2)} ${(y0 + arm).toFixed(2)}`,
+		`M${(x1 - arm).toFixed(2)} ${y0.toFixed(2)} L${x1.toFixed(2)} ${y0.toFixed(2)} L${x1.toFixed(2)} ${(y0 + arm).toFixed(2)}`,
+		`M${(x0 + arm).toFixed(2)} ${y1.toFixed(2)} L${x0.toFixed(2)} ${y1.toFixed(2)} L${x0.toFixed(2)} ${(y1 - arm).toFixed(2)}`,
+		`M${(x1 - arm).toFixed(2)} ${y1.toFixed(2)} L${x1.toFixed(2)} ${y1.toFixed(2)} L${x1.toFixed(2)} ${(y1 - arm).toFixed(2)}`,
+	].join(' ');
+
+	return `<g data-role="aoi-locator-brackets"><path d="${d}" fill="none" stroke="#000000" stroke-width="0.85" stroke-linecap="square" /><path d="${d}" fill="none" stroke="#FFD600" stroke-width="0.40" stroke-linecap="square" /></g>`;
+}
+
 function featureStyleAttributes(
 	featureClass: FeatureClass,
 	panelId: string,
@@ -192,6 +240,11 @@ export function renderMapPanelSvg(params: {
 	const labelFontMm = ((6.0 * 25.4) / 72).toFixed(2);
 
 	const aoiPath = ringsGeoJsonToSvgPath(aoiGeoJson.coordinates, utmSrid, frame);
+	const aoiLocatorBracketsSvg = buildSmallAoiLocatorBracketsSvg(
+		aoiGeoJson.coordinates,
+		utmSrid,
+		frame,
+	);
 
 	// T1 renderiza vetores das feições ativas + até 15 rótulos P1..P15; T0 preserva apenas o perímetro da AOI
 	const featuresSvg =
@@ -300,6 +353,7 @@ export function renderMapPanelSvg(params: {
       ${featuresSvg}
       <path d="${aoiPath}" fill="none" stroke="#000000" stroke-width="0.90" stroke-linejoin="round" />
       <path d="${aoiPath}" fill="none" stroke="#FFD600" stroke-width="0.45" stroke-linejoin="round" />
+      ${aoiLocatorBracketsSvg}
       ${crosshairsSvg}
       ${labelsSvg}
     </g>
