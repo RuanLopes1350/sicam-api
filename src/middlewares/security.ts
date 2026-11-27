@@ -45,6 +45,7 @@ export const securityPlugin = fp<SecurityPluginOptions>(async (app: FastifyInsta
 			'X-Request-Id',
 			'Idempotency-Key',
 			'Last-Event-ID',
+			'Cache-Control',
 		],
 		exposedHeaders: ['X-Request-Id', 'X-Artifact-SHA256', 'Retry-After', 'Content-Disposition'],
 	});
